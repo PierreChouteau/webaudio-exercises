@@ -18,46 +18,60 @@ const globals = {
 
 // [students] ----------------------------------------
 class GranularEngine {
-  constructor(audioContext) {
-    // <-----------------------------
-    // code
-    // ---------------------------->
+  constructor(audioContext, buffer) {
+    this.period = 0.04;
+    this.duration = 0.1;
+    this.position = 1;
+    this.output = audioContext.createGain();
+
+    this.buffer = buffer;
+    this.audioContext = audioContext;
   }
 
-  connect(output) {
-    // <-----------------------------
-    // code
-    // ---------------------------->
+  connect(node) {
+    this.output.connect(node)
   }
 
-  set position(value) {
-    // clamp to [0, buffer.duration - grain.duration]
-    // <-----------------------------
-    // code
-    // ---------------------------->
-  }
+  // set position(value) {
+  //   // clamp to [0, buffer.duration - grain.duration]
+  //   // <-----------------------------
+  //   // code
+  //   // ---------------------------->
+  // }
 
-  get position() {
-    // <-----------------------------
-    // code
-    // ---------------------------->
-  }
+  // get position() {
+  //   // <-----------------------------
+  //   // code
+  //   // ---------------------------->
+  // }
 
   advanceTime(currentTime, audioTime, dt) {
+
     // add some jitter to avoid audible artifact due to period
-    // <-----------------------------
-    // code
-    // ---------------------------->
+    const startTime = currentTime + Math.random() * 0.003;
 
-    // fire and forget the grain
-    // <-----------------------------
-    // code
-    // ---------------------------->
+    // console.log(currentTime);
 
-    // triangle ramp
-    // <-----------------------------
-    // code
-    // ---------------------------->
+    const env = this.audioContext.createGain();
+    env.connect(this.output);
+    env.gain.value = 0;
+
+    // Create triangle ramp between currentTime and currentTime + this.duration
+    env.gain.setValueAtTime(0, startTime);
+    env.gain.linearRampToValueAtTime(1, startTime + this.duration / 2);
+    env.gain.linearRampToValueAtTime(0, startTime + this.duration);
+
+    const src = this.audioContext.createBufferSource();
+    src.buffer = this.buffer;
+
+    src.connect(env);
+
+    src.playbackRate.value = Math.random() + 0.5;
+
+    src.start(startTime, this.position);
+    src.stop(startTime + this.duration);
+
+    return currentTime + this.period
   }
 }
 
@@ -77,14 +91,12 @@ class GranularEngine {
   console.log(buffer);
 
   // create scheduler
-    // <-----------------------------
-    // code
-    // ---------------------------->
+  const scheduler = new Scheduler(() => audioContext.currentTime);
+
 
   // create granular engine
-    // <-----------------------------
-    // code
-    // ---------------------------->
+  const synth = new GranularEngine(audioContext, buffer);
+  synth.connect(audioContext.destination);
 
   globals.buffer = buffer;
   globals.scheduler = scheduler;

@@ -22,7 +22,7 @@ class DumbPriorityQueue {
   }
 
   head() {
-    this.engines.sort((a, b) => a.__time <= b.__time ? -1 : 1);
+    this.engines.sort((a, b) => a.time <= b.time ? -1 : 1);
 
     if (this.engines.length) {
       const engine = this.engines[0];
@@ -33,7 +33,7 @@ class DumbPriorityQueue {
   }
 
   deleteHead() {
-    this.engines.shift();
+    this.engines.shift(); // Enleve le premier élément de la liste.
   }
 }
 
@@ -68,9 +68,32 @@ function tick() {
 }
 
 const metro = {
-    // <-----------------------------
-    // code
-    // ---------------------------->
+    guiElement: null,
+    period: 1,
+    advanceTime(currentTime, dt){
+      if (!this.guiElement){
+        this.guiElement = document.querySelector('.metro');
+      }
+      if (this.guiElement){
+        setTimeout(() => this.guiElement.active = true, dt * 1000); // time in ms
+      }
+
+      const env = audioContext.createGain();
+      env.connect(audioContext.destination);
+
+      env.gain.setValueAtTime(0, currentTime);
+      env.gain.linearRampToValueAtTime(1, currentTime + 0.001);
+      env.gain.exponentialRampToValueAtTime(0.0001, currentTime + 0.05);
+
+      const osc = audioContext.createOscillator();
+      osc.connect(env);
+      osc.frequency.value = 600;
+
+      osc.start(currentTime);
+      osc.stop(currentTime + 0.05);
+
+      return currentTime + this.period;
+    }
 };
 
 // ## Going further

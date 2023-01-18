@@ -27,8 +27,21 @@ function playSound(filename) {
   // -> play the buffer
   // -> add volume
   // <-----------------------------
-  // code
+  // console.log(model);
+  // console.log(filename); 
   // ---------------------------->
+
+  const buffer = model.buffers[filename];
+  const volume = model.volume;
+  const env = audioContext.createGain();
+  env.gain.value = volume;
+  env.connect(audioContext.destination)
+
+  // console.log(buffer);
+  const source = audioContext.createBufferSource();
+  source.connect(env);
+  source.buffer = buffer;
+  source.start();
 
   // ## Going further: separate volume for each buffer
   //
@@ -53,13 +66,17 @@ function playSound(filename) {
 
   // 1. load sound files
   // <-----------------------------
-  // code
+  const loader = new AudioBufferLoader();
+  const buffers = await loader.load(soundfiles);
   // ---------------------------->
 
   // 2. use the result and the `soundfile` Array to populate model.buffers
   // model.buffers -> Object{ [filename]: AudioBuffer }
   // <-----------------------------
-  // code
+  soundfiles.forEach((pathname, index) => {
+    const filename = pathname.split('/')[2]
+    model.buffers[filename] = buffers[index]
+  })
   // ---------------------------->
 
   renderGUI();
