@@ -147,6 +147,7 @@ function impulseResponse(duration, decay) {
   // Q1 --------------------------------------------------------->
   master = audioContext.createGain();
   amplitude_reverb = audioContext.createGain();
+  amplitude_reverb.gain.value = dbToLinear(12);
 
   const impulse = impulseResponse(duration, decay);
   convolver = audioContext.createConvolver();
@@ -171,15 +172,15 @@ function impulseResponse(duration, decay) {
     };
   }
 
-  globals.scheduler = new Scheduler(() => audioContext.currentTime);
-  globals.stepSequencer = new StepSequencer(audioContext, score, bpm, soundfiles, effects);
-  globals.displaySteps = new DisplaySteps(stepDisplayScore, bpm);
+  const scheduler = new Scheduler(() => audioContext.currentTime);
+  const stepSequencer = new StepSequencer(audioContext, score, bpm, soundfiles, effects);
+  const displaySteps = new DisplaySteps(stepDisplayScore, bpm);
+
+  globals.scheduler = scheduler;
+  globals.stepSequencer = stepSequencer;
+  globals.displaySteps = displaySteps;
 
   const startTime = audioContext.currentTime + 0.1;
-
-  // globals.scheduler = scheduler;
-  // globals.stepSequencer = stepSequencer;
-  // globals.displaySteps = displaySteps;
   // scheduler.add(stepSequencer, startTime);
   // scheduler.add(stepSequencer, startTime);
 
@@ -239,7 +240,7 @@ function renderGUI() {
         ></sc-text>
         <sc-slider
           min="80"
-          max="300"
+          max="600"
           value="280"
           @input="${e => {
             bpm = e.detail.value;
@@ -319,7 +320,7 @@ function renderGUI() {
         <sc-slider
           min="-80"
           max="24"
-          value="3"
+          value="12"
           @input="${e => {
             const gain = dbToLinear(e.detail.value);
             amplitude_reverb.gain.setTargetAtTime(gain, audioContext.currentTime, 0.01);
