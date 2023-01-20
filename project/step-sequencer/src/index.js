@@ -7,12 +7,13 @@ import { AudioBufferLoader } from 'waves-loaders';
 import '@ircam/simple-components/sc-text.js';
 import '@ircam/simple-components/sc-slider.js';
 import '@ircam/simple-components/sc-matrix.js';
+import '@ircam/simple-components/sc-button.js';
 
 const audioContext = new AudioContext();
 
 // Global variable definition
 const numSteps = 16;
-const bpm = 280;
+let bpm = 280;
 const score = []; // the beats that should be played
 const stepDisplayScore = [new Array(numSteps).fill(0)]; // to follow the current beat
 let master = null;
@@ -20,7 +21,14 @@ const effects = [];
 const $guiContainer = document.querySelector('#main');
 let convolver = null
 let duration = 1;
-let decay = 4;
+let decay = 2;
+let amplitude_reverb = null;
+
+const globals = {
+  scheduler: null,
+  stepSequencer: null,
+  displaySteps: null,
+}
 
 
 class StepSequencer {
@@ -84,7 +92,6 @@ class DisplaySteps {
   constructor(stepDisplayScore, bpm) {
     this.stepDisplayScore = stepDisplayScore;
     this.bpm = bpm;
-    // this.callback = callback;
 
     this.stepIndex = 0;
     this.numSteps = this.stepDisplayScore[0].length;
@@ -106,7 +113,6 @@ class DisplaySteps {
     }
     
     renderGUI();
-
     return currentTime + bpm_sec;
   }
 }
@@ -140,22 +146,14 @@ function impulseResponse(duration, decay) {
 
   // Q1 --------------------------------------------------------->
   master = audioContext.createGain();
-  // master.gain.value = 0; // Juste un test pour vérifier que le master fonctionne
-  // master.connect(audioContext.destination);
-  // console.log(master.gain.value);
-
-  const amplitude = audioContext.createGain();
-  amplitude.gain.setValueAtTime(1, audioContext.currentTime + 0.1);
+  amplitude_reverb = audioContext.createGain();
 
   const impulse = impulseResponse(duration, decay);
-  // const convolver = new ConvolverNode(audioContext, {buffer: impulse});
   convolver = audioContext.createConvolver();
   convolver.buffer = impulse;
 
   // Connection
-  master.connect(amplitude);
-  amplitude.connect(convolver);
-  convolver.connect(audioContext.destination);
+  master.connect(audioContext.destination);
 
   for (let i = 0; i < soundfiles.length; i++) {
     // populate score as score[track][beat]
@@ -163,15 +161,8 @@ function impulseResponse(duration, decay) {
 
     // Q2 --------------------------------------------------------->
     const gain = audioContext.createGain();
-    // Juste un test pour vérifier que les effets sont correctement créés
-    // if (i != 0){
-    //   gain.gain.value = 0;
-    // }
-
     const lowpass = audioContext.createBiquadFilter();
     lowpass.type = "lowpass";
-    // lowpass.frequency.setValueAtTime(400, audioContext.currentTime);
-    // lowpass.gain.setValueAtTime(2, audioContext.currentTime);
 
     effects[i] = {
       input: gain, // alias gain to input so that the synth doesn't have to know the object names
@@ -180,13 +171,17 @@ function impulseResponse(duration, decay) {
     };
   }
 
-  const scheduler = new Scheduler(() => audioContext.currentTime);
-  const stepSequencer = new StepSequencer(audioContext, score, bpm, soundfiles, effects);
-  const displaySteps = new DisplaySteps(stepDisplayScore, bpm);
+  globals.scheduler = new Scheduler(() => audioContext.currentTime);
+  globals.stepSequencer = new StepSequencer(audioContext, score, bpm, soundfiles, effects);
+  globals.displaySteps = new DisplaySteps(stepDisplayScore, bpm);
 
   const startTime = audioContext.currentTime + 0.1;
-  scheduler.add(stepSequencer, startTime);
-  scheduler.add(displaySteps, startTime);
+
+  // globals.scheduler = scheduler;
+  // globals.stepSequencer = stepSequencer;
+  // globals.displaySteps = displaySteps;
+  // scheduler.add(stepSequencer, startTime);
+  // scheduler.add(stepSequencer, startTime);
 
   renderGUI();
 }());
@@ -201,7 +196,84 @@ function dbToLinear(db) {
 function renderGUI() {
   render(html`
     <div style="margin-bottom: 10px; padding: 20px; border: 1px solid #565656">
-      <h3>reverb controls</h3>
+    <h3>Step Sequencer Control</h3>
+      <div style="padding-bottom: 4px;">
+        <sc-button
+          value="start"
+          @input="${e => {
+            globals.scheduler.add(globals.stepSequencer);
+            globals.scheduler.add(globals.displaySteps);
+          }}"
+        ></sc-button>
+        <sc-button
+          value="stop"
+          @input="${e => {
+            globals.scheduler.remove(globals.stepSequencer);
+            globals.scheduler.remove(globals.displaySteps);
+          }}"
+        ></sc-button>
+      </div>
+      <div style="padding-bottom: 4px;">
+        <sc-text
+          readonly
+          value="master volume"
+          width="120"
+        ></sc-text>
+        <sc-slider
+          min="-80"
+          max="6"
+          value="0"
+          @input="${e => {
+            const gain = dbToLinear(e.detail.value);
+            master.gain.setTargetAtTime(gain, audioContext.currentTime, 0.01);
+            console.log(gain);
+          }}"
+          display-number
+        ></sc-slider>
+      </div>
+      <div style="padding-bottom: 4px;">
+        <sc-text
+          readonly
+          value="bpm"
+          width="120"
+        ></sc-text>
+        <sc-slider
+          min="80"
+          max="300"
+          value="280"
+          @input="${e => {
+            bpm = e.detail.value;
+            globals.stepSequencer.bpm = bpm;
+            globals.displaySteps.bpm = bpm;
+          }}"
+          display-number
+        ></sc-slider>
+      </div>
+    </div>
+
+    <div style="margin-bottom: 10px; padding: 20px; border: 1px solid #565656">
+      <h3>Reverb Controls (appears on the master volume) </h3>
+      <div style="padding-bottom: 4px;">
+        <sc-button
+          value="start"
+          @input="${e => {
+            master.disconnect();
+
+            master.connect(convolver);
+            convolver.connect(amplitude_reverb);
+            amplitude_reverb.connect(audioContext.destination);
+          }}"
+        ></sc-button>
+        <sc-button
+          value="stop"
+          @input="${e => {
+            master.disconnect();
+            convolver.disconnect(); 
+      
+            master.connect(audioContext.destination);
+          }}"
+        ></sc-button>
+      </div>
       <div style="padding-bottom: 4px;">
         <sc-text
           value="duration_reverb"
@@ -209,7 +281,7 @@ function renderGUI() {
           width="150"
         ></sc-text>
         <sc-slider
-          min="0"
+          min="0.01"
           max="3"
           value="${duration}"
           @input="${e => {
@@ -217,6 +289,7 @@ function renderGUI() {
             convolver.buffer = impulseResponse(duration, decay);
             console.log(duration);
           }}"
+          display-number
         ></sc-slider>
       </div>
       <div style="padding-bottom: 4px;">
@@ -226,7 +299,7 @@ function renderGUI() {
           width="150"
         ></sc-text>
         <sc-slider
-          min="0"
+          min="0.01"
           max="2"
           value="${decay}"
           @input="${e => {
@@ -234,25 +307,27 @@ function renderGUI() {
             convolver.buffer = impulseResponse(duration, decay);
             console.log(decay);
           }}"
+          display-number
         ></sc-slider>
       </div>
-    </div>
-    <div style="margin-bottom: 10px;">
-      <sc-text
-        readonly
-        value="master volume"
-        width="120"
-      ></sc-text>
-      <sc-slider
-        min="-80"
-        max="6"
-        value="0"
-        @input="${e => {
-          const gain = dbToLinear(e.detail.value);
-          master.gain.setTargetAtTime(gain, audioContext.currentTime, 0.01);
-          console.log(gain);
-        }}"
-      ></sc-slider>
+      <div style="padding-bottom: 4px;">
+        <sc-text
+          value="amplitude_reverb"
+          readonly
+          width="150"
+        ></sc-text>
+        <sc-slider
+          min="-80"
+          max="24"
+          value="3"
+          @input="${e => {
+            const gain = dbToLinear(e.detail.value);
+            amplitude_reverb.gain.setTargetAtTime(gain, audioContext.currentTime, 0.01);
+            console.log(gain);
+          }}"
+          display-number
+        ></sc-slider>
+      </div>
     </div>
     <div>
       <sc-matrix
@@ -270,7 +345,7 @@ function renderGUI() {
         .value="${score}"
         @change="${e => console.log(e.detail.value)}"
       ></sc-matrix>
-      <div style="float: left">
+      <div style="float: left; padding-left: 8px;">
         ${score.map((track, index) => {
           return html`
             <div>
@@ -290,7 +365,8 @@ function renderGUI() {
                   console.log(gain);
                   console.log(gainNode);
                 }}"
-              ></sc-slider>
+                display-number
+                ></sc-slider>
               <sc-text
                 readonly
                 value="lowpass frequency"
@@ -306,6 +382,7 @@ function renderGUI() {
                   console.log(lowpass)
                   console.log(e.detail.value);
                 }}"
+                display-number
               ></sc-slider>
             </div>
           `;
