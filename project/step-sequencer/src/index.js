@@ -1,3 +1,7 @@
+/**
+ * StepSequencer Project - Pierre CHOUTEAU (ATIAM 2022-2023)
+ */
+
 import "core-js/stable";
 import "regenerator-runtime/runtime";
 import { html, render } from 'lit/html.js';
@@ -44,25 +48,27 @@ class StepSequencer {
   }
 
   advanceTime(currentTime) {
-    // Q3 --------------------------------------------------------->
+    // Q3 - Buffer Source creations --------------------------------------------------------->
     const startTime = currentTime
-    const bpm_sec = 1e-3 * 60000 / this.bpm;
+    const bpm_sec = 1e-3 * 60000 / this.bpm; // passage à un battement par sec
     const buffers = [];
-    for (let i = 0; i < this.soundfiles.length; i++) {
-      buffers[i] = this.soundfiles[i];
-    }
-    console.log(buffers);
 
+    // play each soundfile that needs to be played at the given stepIndex
     for (let i = 0; i < this.soundfiles.length; i++) {
+
+      // création de tous les buffers correspondant chacun à un sample
+      buffers[i] = this.soundfiles[i];
+
+      // le son doit être joué si la case score[i][stepIndex] = 1 (activée)
       if (this.score[i][this.stepIndex] == 1) {
         const src = this.audioContext.createBufferSource();
         
-        // Connection pour connecter la source aux effets
+        // connexion pour connecter la source aux effets
         src.connect(effects[i].gain);
         effects[i].gain.connect(effects[i].lowpass);
         effects[i].lowpass.connect(master);
         
-        // Puis on configure la sortie
+        // puis on configure la sortie
         src.buffer = buffers[i];
         src.start(startTime);
 
@@ -71,17 +77,18 @@ class StepSequencer {
         // console.log('bpm par sec', bpm_sec);
         // console.log('lowpass', effects[i].lowpass)
       }
-
     }
 
-    // Q4 --------------------------------------------------------->
-    if (this.stepIndex >= 15) {
+    // Q4 - Move forward in the score --------------------------------------------------------->
+    // si le stepIndex (case à laquelle on se situe) est supérieur au nombre de cases du stepSequencer, on revient à 0
+    if (this.stepIndex >= this.numSteps-1) {
       this.stepIndex = 0;
     }
+    // sinon on passe à la case suivante, en se basant sur le tempo donné par le bpm
     else {
       this.stepIndex += 1; 
     }
-    // Console log pour faire des vérifications
+    // console log pour faire des vérifications
     // console.log(this.stepIndex)
 
     return currentTime + bpm_sec;
@@ -102,10 +109,13 @@ class DisplaySteps {
     this.stepDisplayScore[0].fill(0);
     this.stepDisplayScore[0][this.stepIndex] = 1;
     
-    // Q5 --------------------------------------------------------->
+    // Q5 - Beat follower track --------------------------------------------------------->
+    /** ici, on rafraichit simplement l'interface afin que la case permettant de se situer
+     *  sur le stepSequencer bouge en même temps que le tempo
+     */
     const bpm_sec = 1e-3 * 60000 / this.bpm;
 
-    if (this.stepIndex >= 15) {
+    if (this.stepIndex >= this.numSteps-1) {
       this.stepIndex = 0;
     }
     else {
@@ -119,6 +129,10 @@ class DisplaySteps {
 
 
 function impulseResponse(duration, decay) {
+  /**
+   * fonction qui renvoie une réponse impulsionnelle. 
+   * utilisée avec un Convolver(), on obtient une reverb
+   */
   const length = audioContext.sampleRate * duration
   const impulse = audioContext.createBuffer(1, length, audioContext.sampleRate)
   const IR = impulse.getChannelData(0)
@@ -134,6 +148,7 @@ function impulseResponse(duration, decay) {
 
   const loader = new AudioBufferLoader();
 
+  // permet de charger les différents samples audio
   const soundfiles = [
     await loader.load('./assets/909-BD-low.wav'),
     await loader.load('./assets/909-SD-low.wav'),
@@ -144,7 +159,13 @@ function impulseResponse(duration, decay) {
     await loader.load('./assets/909-HT-high.wav'),
   ];
 
-  // Q1 --------------------------------------------------------->
+  // Q1 - Master --------------------------------------------------------->
+  /**
+   *  création de différents objets:
+   *    - un gain Master (obligatoire demandée question 1)
+   *    - un gain pour gérer le volume de la reverb
+   *    - un Convolver pour créer une reverb.
+   */
   master = audioContext.createGain();
   amplitude_reverb = audioContext.createGain();
   amplitude_reverb.gain.value = dbToLinear(12);
@@ -153,17 +174,23 @@ function impulseResponse(duration, decay) {
   convolver = audioContext.createConvolver();
   convolver.buffer = impulse;
 
-  // Connection
+  // connection
   master.connect(audioContext.destination);
 
   for (let i = 0; i < soundfiles.length; i++) {
     // populate score as score[track][beat]
     score[i] = new Array(numSteps).fill(0);
 
-    // Q2 --------------------------------------------------------->
+    // Q2 - Effect lines --------------------------------------------------------->
+    /**
+     * création de la ligne d'effet pour chaque piste du sequencer
+     *  - un gain
+     *  - un Lowpass créé grâce à la fonction createBiqadFilter()
+     */
     const gain = audioContext.createGain();
     const lowpass = audioContext.createBiquadFilter();
     lowpass.type = "lowpass";
+    lowpass.frequency.value = 18000;
 
     effects[i] = {
       input: gain, // alias gain to input so that the synth doesn't have to know the object names
@@ -187,13 +214,19 @@ function impulseResponse(duration, decay) {
   renderGUI();
 }());
 
+
 function dbToLinear(db) {
   // Q6 --------------------------------------------------------->
   const linear = 10.0 ** (db / 20.0);
   return linear;
 }
 
-// GUI
+// GUI 
+/** mise en place de quelques modifications dans la partie User Interface pour la partie 'Improvements'
+ * - ajout de la possibilité de démarrer et d'arrêter le step sequencer
+ * - ajout de contrôle pour la reverb ainsi que de la possibilité de l'activer ou de la désactiver
+ * - ajout de la possibilité de modifier le BPM avec un slider
+ */
 function renderGUI() {
   render(html`
     <div style="margin-bottom: 10px; padding: 20px; border: 1px solid #565656">
@@ -227,7 +260,7 @@ function renderGUI() {
           @input="${e => {
             const gain = dbToLinear(e.detail.value);
             master.gain.setTargetAtTime(gain, audioContext.currentTime, 0.01);
-            console.log(gain);
+            console.log('master_gain:', gain);
           }}"
           display-number
         ></sc-slider>
@@ -288,7 +321,7 @@ function renderGUI() {
           @input="${e => {
             duration = e.detail.value;
             convolver.buffer = impulseResponse(duration, decay);
-            console.log(duration);
+            console.log('duration_reverb:', duration);
           }}"
           display-number
         ></sc-slider>
@@ -306,7 +339,7 @@ function renderGUI() {
           @input="${e => {
             decay = e.detail.value;
             convolver.buffer = impulseResponse(duration, decay);
-            console.log(decay);
+            console.log('decay_reverb:', decay);
           }}"
           display-number
         ></sc-slider>
@@ -324,7 +357,7 @@ function renderGUI() {
           @input="${e => {
             const gain = dbToLinear(e.detail.value);
             amplitude_reverb.gain.setTargetAtTime(gain, audioContext.currentTime, 0.01);
-            console.log(gain);
+            console.log('gain_reverb:', gain);
           }}"
           display-number
         ></sc-slider>
@@ -363,7 +396,7 @@ function renderGUI() {
                   const gainNode = effects[index].gain;
                   const gain = dbToLinear(e.detail.value);
                   gainNode.gain.setTargetAtTime(gain, audioContext.currentTime, 0.01);
-                  console.log(gain);
+                  console.log('gain_effect:', gain);
                   console.log(gainNode);
                 }}"
                 display-number
@@ -381,7 +414,7 @@ function renderGUI() {
                   const lowpass = effects[index].lowpass;
                   lowpass.frequency.setTargetAtTime(e.detail.value, audioContext.currentTime, 0.01);
                   console.log(lowpass)
-                  console.log(e.detail.value);
+                  console.log('cutoff_freq:', e.detail.value);
                 }}"
                 display-number
               ></sc-slider>

@@ -32,6 +32,16 @@ build the application
 
 launch the server
 
+## StepSequencer Projet - Pierre CHOUTEAU
+
+Following the different steps for the stepSequencer project, I started by setting it up with the 'bascis' instructions (Master volume, effects lines, BufferSource creations, Beat follower track, dbToLinear...).  
+
+Then, I added some personal elements to go further into its functioning: 
+- Added the ability to start and stop the system with buttons
+- Addition of a controllable reverb, which can be activated with buttons and sliders (the reverb comes in at the end of the chain, on the master)
+- Added the ability to modify the BPM from the user interface
+- Modification of the user interface to make it more accessible
+
 ## Authors
 
 - Benjamin Matuszewski <benjamin.matuszewski@ircam.fr>
