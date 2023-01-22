@@ -32,7 +32,7 @@ build the application
 
 launch the server
 
-## StepSequencer Projet - Pierre CHOUTEAU
+## Step Sequencer Project - Pierre CHOUTEAU
 
 Following the different steps for the stepSequencer project, I started by setting it up with the 'bascis' instructions (Master volume, effects lines, BufferSource creations, Beat follower track, dbToLinear...).  
 

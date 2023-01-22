@@ -229,7 +229,7 @@ function dbToLinear(db) {
 function renderGUI() {
   render(html`
     <div style="margin-bottom: 10px; padding: 20px; border: 1px solid #565656">
-    <h3>Step Sequencer Control</h3>
+    <h3>Step Sequencer Controls</h3>
       <div style="padding-bottom: 4px;">
         <sc-button
           value="start"
