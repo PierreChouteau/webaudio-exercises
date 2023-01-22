@@ -1,7 +1,6 @@
 /**
  * StepSequencer Project - Pierre CHOUTEAU (ATIAM 2022-2023)
  */
-
 import "core-js/stable";
 import "regenerator-runtime/runtime";
 import { html, render } from 'lit/html.js';
@@ -164,7 +163,7 @@ function impulseResponse(duration, decay) {
    *  création de différents objets:
    *    - un gain Master (obligatoire demandée question 1)
    *    - un gain pour gérer le volume de la reverb
-   *    - un Convolver pour créer une reverb.
+   *    - un Convolver pour créer la reverb.
    */
   master = audioContext.createGain();
   amplitude_reverb = audioContext.createGain();
@@ -185,7 +184,7 @@ function impulseResponse(duration, decay) {
     /**
      * création de la ligne d'effet pour chaque piste du sequencer
      *  - un gain
-     *  - un Lowpass créé grâce à la fonction createBiqadFilter()
+     *  - un lowpass créé grâce à la fonction createBiqadFilter()
      */
     const gain = audioContext.createGain();
     const lowpass = audioContext.createBiquadFilter();
